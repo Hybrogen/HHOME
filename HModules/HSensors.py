@@ -35,7 +35,7 @@ class DHT(IOSENSOR):
         h, t = Adafruit_DHT.read(self.dht, self.pin)
         time.sleep(3)
         if h and t and t > -271 and t < 100:
-            rdata = {'temperature': t, 'humidity': h, 'state': 'ok'}
+            rdata = {'temperature': int(t), 'humidity': int(h), 'state': 'ok'}
         else:
             rdata = {'state': 'error'}
         return rdata
