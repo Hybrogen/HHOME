@@ -45,42 +45,24 @@ h_config = {
     }
 
 HCONFIGS = HARDMODULEDIR + "/thresholds"
-check_file('file', HCONFIGS, json.dumps(h_config))
-
 RECONFIG = HCONFIGS + '_reset'
 
 PORTID = 1
 
-def reset_threshold(h_config, first_init: bool = False):
-    if os.path.isfile(RECONFIG):
-        hlog(f"reset_threshold - 有 {RECONFIG} 文件")
-        with open(RECONFIG, encoding = 'utf8') as f:
-            h_config = json.loads(f.readline())
-        os.rename(RECONFIG, HCONFIGS)
-        hlog(f"reset_threshold - 新 config = {h_config}")
-        return h_config
-    if first_init and os.path.isfile(HCONFIGS):
-        with open(HCONFIGS, encoding = 'utf8') as f:
-            h_config = json.loads(f.readline())
-    return h_config
-
-def update_threshold_file(h_config):
-    with open(HCONFIGS, 'w', encoding = 'utf8') as f: f.write(json.dumps(h_config))
-
 ################################## 初始化各个模块 ##################################
-from HModules import HActuator, HMySQL, HSensors
+from HModules import HActuator, HMySQL, HSensors, HConfig
 
 sql = HMySQL.HSQL('HGreenhouse')
 s_light = HSensors.IOSENSOR(5)
 s_dht = HSensors.DHT(23, 'DHT22')
 a_curtain = HActuator.SteeppingMOTOR([6, 13, 19, 26])
 a_water = HActuator.HRELAY(24)
+hconf = HConfig.CONFIG(HCONFIGS, RECONFIG, h_config)
 
 ################################  定义各个功能模块  ################################
 
-def module_1_autoWater(h_config) -> int:
+def module_1_autoWater() -> int:
     start_run_time = time.time()
-    # h_config = reset_threshold(h_config)
     data = s_dht.check()
     if data.get('state') == 'error': return
     data['pid'] = PORTID
@@ -88,15 +70,13 @@ def module_1_autoWater(h_config) -> int:
     humidity, temperature = data['humidity'], data['temperature']
 
     hlog(f"检测到温湿度数据: data = {data}", 'data')
-    waterOn = humidity < h_config['humidity'] or temperature > h_config['temperature']
+    waterOn = humidity < hcond.get_data(['humidity']) or temperature > hcond.get_data(['temperature'])
     a_water.run(waterOn)
-    h_config['water_state'] = waterOn
-    update_threshold_file(h_config)
-    return ((10 if waterOn else 600) - int(time.time() - start_run_time), h_config)
+    hconf.updata('water_state', waterOn)
+    return (10 if waterOn else 600) - int(time.time() - start_run_time)
 
-def module_2_autoCurtain(h_config) -> int:
+def module_2_autoCurtain() -> int:
     start_run_time = time.time()
-    # h_config = reset_threshold(h_config)
     have_light = s_light.check()
     data = dict()
     data['pid'] = PORTID
@@ -104,23 +84,20 @@ def module_2_autoCurtain(h_config) -> int:
     sql.light_save(data)
 
     # 自动模式 - 
-    if h_config['curtain_auto']:
-        if have_light == h_config['curtain_state']:
+    if hcond.get_data(['curtain_auto']):
+        if have_light == hconf.get_data(['curtain_state']):
             a_curtain.run(not have_light)
-            h_config['curtain_state'] = not have_light
-            update_threshold_file()
+            hconf.updata('curtain_state', not have_light)
     # 手动模式 - 如果检测状态与手动设定状态不同，活动窗帘
     # 并将窗帘重置为自动模式
     else:
-        h_config['curtain_auto'] = True
-        a_curtain.run(h_config['curtain_state'])
-        update_threshold_file(h_config)
+        a_curtain.run(hconf.get_data(['curtain_state']))
+        hconf.updata('curtain_auto', True)
 
     hlog(f"检测到光照度数据: have_light = {have_light}", 'data')
-    return (600 - int(time.time() - start_run_time), h_config)
+    return 600 - int(time.time() - start_run_time)
 
-def main(h_config):
-    h_config = reset_threshold(h_config, True)
+def main():
     modules_run_info = {
         '1_autoWater': {
             'last_run_time': time.time(),
@@ -132,22 +109,15 @@ def main(h_config):
         },
     }
     while True:
-        # hlog(f"os.path.isfile({RECONFIG}) = {os.path.isfile(RECONFIG)}")
-        # hlog(f"h_config = {h_config}\n{'-'*100}")
-        # input()
-        if os.path.isfile(RECONFIG):
+        if hconf.setFile:
             hlog(f"main 存在文件 {RECONFIG}")
-            h_config = reset_threshold(h_config)
             for module in modules_run_info.keys():
                 modules_run_info[module]['run_interval'] = 1
         for module in modules_run_info.keys():
             time.sleep(1)
-            # if int(time.time() - modules_run_info[module]['last_run_time']) > modules_run_info[module]['run_interval']:
-            #     modules_run_info[module]['run_interval'], h_config = eval(f"module_{module}")(h_config)
-            #     modules_run_info[module]['last_run_time'] = time.time()
             try:
                 if int(time.time() - modules_run_info[module]['last_run_time']) > modules_run_info[module]['run_interval']:
-                    modules_run_info[module]['run_interval'], h_config = eval(f"module_{module}")(h_config)
+                    modules_run_info[module]['run_interval'] = eval(f"module_{module}")()
                     modules_run_info[module]['last_run_time'] = time.time()
             except TypeError:
                 hlog(f"main module = {module}", 'error')
@@ -155,6 +125,6 @@ def main(h_config):
 
 if __name__ == '__main__':
     try:
-        main(h_config)
+        main()
     except KeyboardInterrupt:
         hlog('智能温室大棚硬件系统停止工作')
