@@ -6,9 +6,15 @@ from django.http import JsonResponse
 import json
 import time
 
-from HModules import HMySQL
+from HModules import HMySQL, HConfig
 
-sql = HMySQL.HSQL('HGreenhouse')
+sql = HMySQL.HSQL('HHOME')
+
+MDIR = 'HModules'
+CONF = MDIR + '/light_conf'
+RECONF = CONF + '/reset'
+
+lightConf = HConfig.CONFIG(CONF, RECONF)
 
 def index(request):
     return HttpResponse('这不是你该来的地方')
@@ -78,11 +84,23 @@ def get_data(request):
     light_data = sql.get_data(rdata)
     return JsonResponse({'state': 'ok', 'dht_data': dht_data, 'light_data': light_data})
 
-def get_state(request):
-    with open('HModules/thresholds', encoding='utf8') as f: hconfig = json.loads(f.readline())
-    del hconfig['curtain_auto']
-    del hconfig['water_auto']
-    rdata = hconfig
+def get_light_config(request):
+    r"""
+    此函数用于返回灯光的配置数据
+
+    Return value / exceptions raised:
+    - 返回一个字典，内容是
+    {
+        "temperature": 27,
+        "humidity": 44,
+        "light": 5,
+        "curtain_auto": true,
+        "curtain_state": true,
+        "water_auto": false,
+        "water_state": false,
+    }
+    """
+    rdata = lightConf.get_data()
     rdata['pid'] = request.GET['houseNum'][0]
     rdata['state'] = 'ok'
     return JsonResponse(rdata)

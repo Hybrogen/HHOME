@@ -16,6 +16,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from HHOME import views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('lightConfig', views.get_light_config),
+    path('setLight', views.set_light_config),
+    path('', views.),
+    path('', views.),
 ]

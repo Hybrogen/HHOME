@@ -51,7 +51,7 @@ class CONFIG(object):
         with open(self.oriFile, 'w', encoding='utf8'):
             f.readline(json.dumps(self.data))
 
-    def get_data(self, queryFields: list):
+    def get_data(self, queryFields: list = []):
         r"""
         此方法用于返回内存中的配置数据
 

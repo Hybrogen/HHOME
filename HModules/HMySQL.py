@@ -147,7 +147,7 @@ class HSQL(object):
             SELECT {fields} FROM `{query_data['data_type']}_{self.data_table}` WHERE `id` in (
                 SELECT `cid` FROM (
                         SELECT MAX(`id`) as `cid`, DATE_FORMAT(`check_datetime`, '%Y-%m-%d %H') as `cdate`
-                        FROM `dht_datas` WHERE `check_datetime` BETWEEN '{query_data['start_date']}' AND '{query_data['end_date']}' AND `pid` = {pid}
+                        FROM `{query_data['data_type']}_{self.data_table}` WHERE `check_datetime` BETWEEN '{query_data['start_date']}' AND '{query_data['end_date']}' AND `pid` = {pid}
                         GROUP BY `cdate`
                 ) as cdid
             )
