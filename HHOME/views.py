@@ -14,8 +14,6 @@ MDIR = 'HModules'
 CONF = MDIR + '/light_conf'
 RECONF = CONF + '/reset'
 
-lightConf = HConfig.CONFIG(CONF, RECONF)
-
 def index(request):
     return HttpResponse('这不是你该来的地方')
 
@@ -68,6 +66,13 @@ def set_curtain(request):
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 
+############################## 获取系列 ##############################
+
+def get_ports(request):
+    rdata = {'ports': sql.get_ports()}
+    rdata['state'] = 'ok'
+    return JsonResponse(rdata)
+
 def get_data(request):
     # print(f"get_data = {request.GET}")
     rdata = dict()
@@ -89,19 +94,80 @@ def get_light_config(request):
     此函数用于返回灯光的配置数据
 
     Return value / exceptions raised:
+    - 返回一个字典
+    """
+    rdata = {'pid': request.GET['houseNum'][0]}
+    lightFields = ['id', 'name', 'local', 'light', 'color', 'state']
+    query_sql = f"""
+    SELECT {', '.join(['`' + f + '`' for f in lightFields])}
+    FROM `light_config` WHERE `pid` = {rdata['pid']}
+    """
+    rdata['lights'] = sql.sql_select(lightFields, query_sql)
+    rdata['state'] = 'ok'
+    return JsonResponse(rdata)
+
+def get_dht_config(request):
+    r"""
+    GET request
+    此函数用于返回DHT传感器的配置数据
+
+    Return value / exceptions raised:
     - 返回一个字典，内容是
     {
         "temperature": 27,
         "humidity": 44,
-        "light": 5,
         "curtain_auto": true,
         "curtain_state": true,
         "water_auto": false,
         "water_state": false,
     }
     """
-    rdata = lightConf.get_data()
+    rdata = dhtConf.get_data()
     rdata['pid'] = request.GET['houseNum'][0]
+    rdata['state'] = 'ok'
+    return JsonResponse(rdata)
+
+############################## 添加系列 ##############################
+
+def add_port(request):
+    r"""
+    POST 请求:
+    首先获取请求中的 name 和 local 字段插入添加一个节点
+    之后查询最新的节点信息
+    """
+    qdata = json.loads(request.body)
+    query_data = [qdata['portName'], qdata['portLocal']]
+    # query_data = ['新', '奥秘客人']
+    query_sql = "INSERT INTO `ports`(`name`, `local`) VALUES(%s, %s)"
+    sql.sql_insert(query_sql, query_data)
+
+    query_sql = "SELECT * FROM `ports` WHERE `id` = (SELECT MAX(`id`) FROM `ports`)"
+    rdata = sql.sql_select(['id', 'name', 'local'], query_sql)[0]
+    rdata['state'] = 'ok'
+    return JsonResponse(rdata)
+ 
+def add_light(request):
+    r"""
+    POST 请求:
+    需要获取的字段:
+    pid -- 节点 id【必须
+    name -- 灯光名称备注【非必须
+    local -- 灯光布置地点备注【非必须
+    """
+    # qdata = json.loads(request.body)
+    qdata = {'pid':1 ,'name': '卧室主灯', 'local': '卧室'}
+    insert_data = dict()
+    for f in ['pid', 'name', 'local']:
+        if qdata.get(f, None):
+            insert_data[f] = qdata[f]
+    query_sql = f"""
+    INSERT INTO `light_config`({', '.join(['`' + f + '`' for f in insert_data.keys()])})
+    VALUES({', '.join(['%s']*len(insert_data.keys()))})
+    """
+    sql.sql_insert(query_sql, list(insert_data.values()))
+
+    query_sql = "SELECT * FROM `light_config` WHERE `id` = (SELECT MAX(`id`) FROM `light_config`)"
+    rdata = sql.sql_select(['id', 'pid', 'name', 'local', 'light', 'color', 'state'], query_sql)[0]
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 

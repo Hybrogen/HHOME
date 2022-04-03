@@ -17,7 +17,7 @@ def ttime(gt_mode: str = 'all'):
     return int(time.strftime(temp_strs[gt_mode], time.localtime(time.time())))
 
 def hlog(msg, msg_type = 'info'):
-    return
+    if msg_type in ['info']: return
     print(f"{ttime()} - {msg_type}: {msg}")
 
 import pymysql
@@ -42,6 +42,7 @@ class HSQL(object):
 
     def sql_insert(self, sql: str, save_data: list):
         hlog(f"sql_insert sql = {sql}")
+        hlog(f"sql_insert data = {save_data}")
         try:
             cur = self.con.cursor()
             cur.execute(sql, save_data)
@@ -93,27 +94,52 @@ class HSQL(object):
 
 #####################          查询操作          ##########################
 
-    def sql_select(self, sql: str):
+    def sql_select(self, fields: list, sql: str) -> list:
+        r"""
+        查询数据库并返回一个字典
+        Arguments:
+        fields -- 请求字段，用于打包查询的数据
+        sql -- 查询语句，用于从数据库中查询数据
+
+        Return value / exceptions raised:
+        - 返回一个列表，每个数据是一个字典
+            - [{key - 字段: value - 数据}, ]
+        """
         print(f"sql_select info: sql = [{sql}]")
         try:
             cur = self.con.cursor()
             cur.execute(sql)
             rdata = cur.fetchall()
             cur.close()
-            return rdata
+            return [dict(zip(fields, d)) for d in rdata]
         except Exception as e:
             print(f"sql_select error: e = {e}")
-            return None
+            return []
 
-    def get_ports(self, query_data: dict = None) -> dict:
+    def get_ports(self, query_data: dict = None) -> list:
+        r"""
+        获取数据库里的节点信息
+        Arguments:
+        query_data -- 请求数据，默认为 None 是请求所有节点数据
+                    - 如果有数据则按照 ['id', 'name', 'local'] 的顺序查询数据，前者的优先级高
+
+        Return value / exceptions raised:
+        - 返回一个列表，包含查询到的节点数据
+        [
+            {
+                "id": 1,
+                "name": "阿庄",
+                "local": "三千宫险断",
+            },
+        ]
+        """
         sql = f"select * from `{self.port_table}`"
         if query_data:
             for k in self.port_fields:
                 if k in query_data:
                     sql += f" where `{k}` = {query_data[k]}"
                     break
-        data = self.sql_select(sql)
-        data = [dict(zip(self.port_fields, d)) for d in data]
+        data = self.sql_select(self.port_fields, sql)
         return data
 
     def get_data(self, query_data: dict) -> dict:
@@ -154,8 +180,8 @@ class HSQL(object):
             """
 
         # 获取并返回数据
-        rdata = self.sql_select(sql)
-        data['data'] = [dict(zip(self.data_fields[query_data['data_type']], d)) for d in rdata] if rdata else []
+        rdata = self.sql_select(self.data_fields[query_data['data_type']], sql)
+        data['data'] = rdata
         data['state'] = 'ok'
         return data
 

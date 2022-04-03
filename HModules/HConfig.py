@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
 import os
+import json
 
 class CONFIG(object):
     def __init__(self, oriFile: str, setFile: str, initData: dict = dict()):
@@ -41,7 +42,7 @@ class CONFIG(object):
         """
         if not self.check_ori():
             self.save()
-        with open(self.oriFile, encoding='utf8'):
+        with open(self.oriFile, encoding='utf8') as f:
             self.data = json.loads(f.readline())
 
     def save(self):

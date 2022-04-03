@@ -25,7 +25,7 @@ SECRET_KEY = 't8$-m4x0e3bi0y-r#aq&-iwc(xjwykcvy5v3m2f@6u_$z^wz*p'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['hhome.zinchon.com']
+ALLOWED_HOSTS = ['hhome.zinchon.net']
 
 
 # Application definition
