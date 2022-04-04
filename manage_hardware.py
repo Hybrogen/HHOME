@@ -5,23 +5,6 @@ import os
 import json
 import time
 
-def ttime(gt_mode: str = 'all'):
-    if gt_mode == 'all': return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    temp_strs = {
-        'all': '%Y-%m-%d %H:%M:%S',
-        'year': '%Y',
-        'mounth': '%m',
-        'day': '%d',
-        'hour': '%H',
-        'minute': '%M',
-        'second': '%S',
-    }
-    return int(time.strftime(temp_strs[gt_mode], time.localtime(time.time())))
-
-def hlog(msg, msg_type = 'info'):
-    if msg_type in ['info']: return
-    print(f"{ttime()} - {msg_type}: {msg}")
-
 def check_file(f_type: str, f_name: str, content: str = "{}"):
     if f_type == 'dir' and not os.path.isdir(f_name):
         if os.path.isfile(f_name): raise Exception(f"已存在同名文件 [{f_name}]，请检查系统所需文件夹路径是否被占用")
@@ -34,30 +17,26 @@ def check_file(f_type: str, f_name: str, content: str = "{}"):
 HARDMODULEDIR = "HModules"
 check_file('dir', HARDMODULEDIR)
 
-h_config = {
-        'temperature': 24,
-        'humidity': 50,
-        'light': 5,
-        'curtain_auto': True,
-        'curtain_state': True,
-        'water_auto': True,
-        'water_state': True,
-    }
-
-HCONFIGS = HARDMODULEDIR + "/thresholds"
-RECONFIG = HCONFIGS + '_reset'
+LCONFIGS = HARDMODULEDIR + "/light_config"
 
 PORTID = 1
 
 ################################## 初始化各个模块 ##################################
-from HModules import HActuator, HMySQL, HSensors, HConfig
+from HModules import HActuator, HMySQL, HSensors, HConfig, HLog
 
-sql = HMySQL.HSQL('HGreenhouse')
-s_light = HSensors.IOSENSOR(5)
-s_dht = HSensors.DHT(23, 'DHT22')
-a_curtain = HActuator.SteeppingMOTOR([6, 13, 19, 26])
-a_water = HActuator.HRELAY(24)
-hconf = HConfig.CONFIG(HCONFIGS, RECONFIG, h_config)
+# 数据库
+sql = HMySQL.HSQL('HHOME')
+# 传感器
+s_dht = HSensors.DHT(21, 'DHT22')
+# Adoor = HActuator.SteeppingMOTOR([6, 13, 19, 26])
+Adoor = HActuator.([6, 13, 19, 26])
+Aheater = HActuator.HRELAY(16)
+Ahumidifier = HActuator.HRELAY(20)
+lightPins = [19, 26]
+Alight = [HActuator.HRELAY(pin) for pin in lightPins]
+# 其他模块
+hconf = HConfig.CONFIG(LCONFIGS, LCONFIGS + '_rest')
+log = HLog.LOG()
 
 ################################  定义各个功能模块  ################################
 
@@ -69,7 +48,7 @@ def module_1_autoWater() -> int:
     sql.dht_save(data)
     humidity, temperature = data['humidity'], data['temperature']
 
-    hlog(f"检测到温湿度数据: data = {data}", 'data')
+    log.ldata(f"检测到温湿度数据: data = {data}")
     waterOn = humidity < hcond.get_data(['humidity']) or temperature > hcond.get_data(['temperature'])
     a_water.run(waterOn)
     hconf.updata('water_state', waterOn)
@@ -94,7 +73,7 @@ def module_2_autoCurtain() -> int:
         a_curtain.run(hconf.get_data(['curtain_state']))
         hconf.updata('curtain_auto', True)
 
-    hlog(f"检测到光照度数据: have_light = {have_light}", 'data')
+    log.ldata(f"检测到光照度数据: have_light = {have_light}")
     return 600 - int(time.time() - start_run_time)
 
 def main():
@@ -110,7 +89,7 @@ def main():
     }
     while True:
         if hconf.setFile:
-            hlog(f"main 存在文件 {RECONFIG}")
+            log.linfo(f"main 存在文件 {RECONFIG}")
             for module in modules_run_info.keys():
                 modules_run_info[module]['run_interval'] = 1
         for module in modules_run_info.keys():
@@ -120,11 +99,11 @@ def main():
                     modules_run_info[module]['run_interval'] = eval(f"module_{module}")()
                     modules_run_info[module]['last_run_time'] = time.time()
             except TypeError:
-                hlog(f"main module = {module}", 'error')
+                log.lerror(f"main module = {module}")
                 modules_run_info[module]['run_interval'] = 1
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        hlog('智能温室大棚硬件系统停止工作')
+        log.log('个性化智能房屋硬件系统停止工作', 'exit')
