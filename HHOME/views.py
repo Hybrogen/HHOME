@@ -6,11 +6,15 @@ from django.http import JsonResponse
 import json
 import time
 
-from HModules import HMySQL, HConfig
+from HModules import HMySQL, HConfig,  HActuator
 
 sql = HMySQL.HSQL('HHOME')
+cam = HActuator.CAM()
 
 MDIR = 'HModules'
+
+FACES = MDIR + '/baseFaces'
+
 CONF = MDIR + '/light_conf'
 RECONF = CONF + '/reset'
 
@@ -154,8 +158,8 @@ def add_light(request):
     name -- 灯光名称备注【非必须
     local -- 灯光布置地点备注【非必须
     """
-    # qdata = json.loads(request.body)
-    qdata = {'pid':1 ,'name': '卧室主灯', 'local': '卧室'}
+    qdata = json.loads(request.body)
+    # qdata = {'pid':1 ,'name': '卧室主灯', 'local': '卧室'}
     insert_data = dict()
     for f in ['pid', 'name', 'local']:
         if qdata.get(f, None):
@@ -169,5 +173,19 @@ def add_light(request):
     query_sql = "SELECT * FROM `light_config` WHERE `id` = (SELECT MAX(`id`) FROM `light_config`)"
     rdata = sql.sql_select(['id', 'pid', 'name', 'local', 'light', 'color', 'state'], query_sql)[0]
     rdata['state'] = 'ok'
+    return JsonResponse(rdata)
+
+def add_master(request):
+    r"""
+    POST 注册新的房屋主人
+    需要的字段：
+    facePic -- 人脸的照片的 base64 编码字符串
+    name -- 需要注册的照片的 id / 名字
+    """
+    qdata = json.loads(request.body)
+    with open(f"{FACES}/{qdata['name']}.jpg", 'wb') as f:
+        f.write(base64.b64decode(qdata['facePic']))
+    cam.add_user(qdata['name'])
+    rdata = cam.user_info(qdata['name'])
     return JsonResponse(rdata)
 
