@@ -71,16 +71,6 @@ class HSQL(object):
     def dht_save(self, data: dict) -> bool:
         data['type'] = 'dht'
         return self.data_save(data)
-        try:
-            save_data = list()
-            for k in ['pid', 'temperature', 'humidity']:
-                save_data.append(data[k])
-            save_data.append(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
-        except KeyError:
-            return False
-
-        sql = f"insert into `dht_{self.data_table}`(`pid`, `temperature`, `humidity`, `check_datetime`) values(%s, %s, %s, %s)"
-        return self.sql_insert(sql, save_data)
 
     def light_save(self, data: dict) -> bool:
         data['type'] = 'light'

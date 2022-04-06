@@ -43,7 +43,10 @@ class CONFIG(object):
         if not self.check_ori():
             self.save()
         with open(self.oriFile, encoding='utf8') as f:
-            self.data = json.loads(f.readline())
+            try:
+                self.data = json.loads(f.readline())
+            except json.decoder.JSONDecodeError:
+                self.data = dict()
 
     def save(self):
         r"""

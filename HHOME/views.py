@@ -17,6 +17,7 @@ MDIR = 'HModules'
 FACES = MDIR + '/baseFaces'
 
 CONF = MDIR + '/conf'
+if not os.path.isdir(CONF): os.mkdir(CONF)
 LICONF = CONF + '/light_conf'
 RELICONF = CONF + '_reset'
 lightConf = HConfig.CONFIG(LICONF, RELICONF)
@@ -82,6 +83,9 @@ def get_ports(request):
 
 def get_data(request):
     # print(f"get_data = {request.GET}")
+    r"""
+    GET request
+    """
     rdata = dict()
     rdata['pid'] = request.GET['houseNum'][0]
     if 'startTime' in request.GET and 'endTime' in request.GET:
@@ -92,9 +96,10 @@ def get_data(request):
         rdata['end_date'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     rdata['data_type'] = 'dht'
     dht_data = sql.get_data(rdata)
-    rdata['data_type'] = 'light'
-    light_data = sql.get_data(rdata)
-    return JsonResponse({'state': 'ok', 'dht_data': dht_data, 'light_data': light_data})
+    # rdata['data_type'] = 'light'
+    # light_data = sql.get_data(rdata)
+    # return JsonResponse({'state': 'ok', 'dht_data': dht_data, 'light_data': light_data})
+    return JsonResponse({'state': 'ok', 'dht_data': dht_data})
 
 def get_light_config(request):
     r"""
@@ -143,7 +148,7 @@ def get_dht_config(request):
 
 def get_masters(request):
     r"""
-    POST request
+    GET request
     返回已经登陆的人脸
 
     Return value / exceptions raised:
@@ -152,6 +157,7 @@ def get_masters(request):
     rdata = {'state': 'ok'}
     masters = [cam.get_user_info(userHeadPic[:-4]) for userHeadPic in os.listdir(FACES)]
     rdata['masters'] = masters
+    return JsonResponse(rdata)
 
 ############################## 添加系列 ##############################
 
@@ -171,7 +177,7 @@ def add_port(request):
     rdata = sql.sql_select(['id', 'name', 'local'], query_sql)[0]
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
- 
+
 def add_light(request):
     r"""
     POST 请求:
