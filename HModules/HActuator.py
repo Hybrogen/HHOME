@@ -78,6 +78,7 @@ class CAM(object):
         self.baiduCloud = AipFace(APP_ID, API_KEY, SECRET_KEY)
         self.photoPath = "/tmp/HCamHCaptureHPhoto.jpg"
         self.baseFaces = "HModules/baseFaces"
+        if not os.path.isdir(self.baseFaces): os.mkdir(self.baseFaces)
 
     def picture(self, outPath = None):
         if not outPath: outPath = self.photoPath
@@ -109,10 +110,12 @@ class CAM(object):
     def get_user_info(self, userId):
         faces = self.baiduCloud.faceGetlist(userId, 'models')['result']['face_list']
         rdata = {
-                'userId': userId,
-                'recordTime': faces[0]['ctime'],
-                'updataTime': faces[-1]['ctime'],
-                }
+            'userId': userId,
+            'recordTime': faces[0]['ctime'],
+            'updataTime': faces[-1]['ctime'],
+        }
+        with open(f"{self.baseFaces}/{userId}.jpg", 'rb') as f:
+            rdata['face'] = str(base64.b64encode(f.read()), 'utf-8')
         return rdata
 
     def get_faces(self):

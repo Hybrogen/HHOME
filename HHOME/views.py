@@ -5,6 +5,7 @@ from django.http import JsonResponse
 
 import json
 import time
+import os
 
 from HModules import HMySQL, HConfig,  HActuator
 
@@ -15,8 +16,10 @@ MDIR = 'HModules'
 
 FACES = MDIR + '/baseFaces'
 
-CONF = MDIR + '/light_conf'
-RECONF = CONF + '/reset'
+CONF = MDIR + '/conf'
+LICONF = CONF + '/light_conf'
+RELICONF = CONF + '_reset'
+lightConf = HConfig.CONFIG(LICONF, RELICONF)
 
 def index(request):
     return HttpResponse('这不是你该来的地方')
@@ -101,12 +104,19 @@ def get_light_config(request):
     - 返回一个字典
     """
     rdata = {'pid': request.GET['houseNum'][0]}
-    lightFields = ['id', 'name', 'local', 'light', 'color', 'state']
-    query_sql = f"""
-    SELECT {', '.join(['`' + f + '`' for f in lightFields])}
-    FROM `light_config` WHERE `pid` = {rdata['pid']}
-    """
-    rdata['lights'] = sql.sql_select(lightFields, query_sql)
+    if not lightConf.data:
+        lightFields = ['id', 'name', 'local', 'light', 'color', 'state']
+        query_sql = f"""
+        SELECT {', '.join(['`' + f + '`' for f in lightFields])}
+        FROM `light_config` WHERE `pid` = {rdata['pid']}
+        """
+        lights = sql.sql_select(lightFields, query_sql)
+        for light in lights:
+            lid = light['id']
+            del light['id']
+            lightConf.data[lid] = light
+        lightConf.save()
+    rdata['lights'] = lightConf.data
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 
@@ -130,6 +140,18 @@ def get_dht_config(request):
     rdata['pid'] = request.GET['houseNum'][0]
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
+
+def get_masters(request):
+    r"""
+    POST request
+    返回已经登陆的人脸
+
+    Return value / exceptions raised:
+    - 返回一个列表 [{}, {},]
+    """
+    rdata = {'state': 'ok'}
+    masters = [cam.get_user_info(userHeadPic[:-4]) for userHeadPic in os.listdir(FACES)]
+    rdata['masters'] = masters
 
 ############################## 添加系列 ##############################
 

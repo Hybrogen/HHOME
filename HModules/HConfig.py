@@ -49,7 +49,7 @@ class CONFIG(object):
         r"""
         此方法用于把内存中的配置文件保存到文件中离线
         """
-        with open(self.oriFile, 'w', encoding='utf8'):
+        with open(self.oriFile, 'w', encoding='utf8') as f:
             f.readline(json.dumps(self.data))
 
     def get_data(self, queryFields: list = []):

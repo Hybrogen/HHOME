@@ -24,6 +24,7 @@ urlpatterns = [
     path('lightConfig', views.get_light_config),
     # path('setLight', views.set_light_config),
     path('getPorts', views.get_ports),
+    path('getMasters', views.get_ports),
     path('addPort', views.add_port),
     path('addLight', views.add_light),
 ]
