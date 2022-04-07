@@ -13,17 +13,23 @@ sql = HMySQL.HSQL('HHOME')
 cam = HActuator.CAM()
 
 MDIR = 'HModules'
-
 FACES = MDIR + '/baseFaces'
+if not os.path.isdir(FACES): os.mkdir(FACES)
+CONFS = MDIR + '/conf'
+if not os.path.isdir(CONFS): os.mkdir(CONFS)
 
-CONF = MDIR + '/conf'
-if not os.path.isdir(CONF): os.mkdir(CONF)
-LICONF = CONF + '/light_conf'
-RELICONF = CONF + '_reset'
+LICONF = CONFS + '/light_conf'
+RELICONF = LICONF + '_reset'
 lightConf = HConfig.CONFIG(LICONF, RELICONF)
+
+DHTCONF = CONFS + '/dht_conf'
+REDHTCONF = DHTCONF + '_reset'
+dhtConf = HConfig.CONFIG(DHTCONF, REDHTCONF)
 
 def index(request):
     return HttpResponse('这不是你该来的地方')
+
+############################## 设置系列 ##############################
 
 def set_hconfig(change_info: dict) -> bool:
     with open('HModules/thresholds', encoding='utf8') as f: hconfig = json.loads(f.readline())
@@ -42,17 +48,35 @@ def set_temperature(request):
 
 def set_humidity(request):
     query_data = json.loads(request.body)
-    rdata = dict()
+    rdata = {'pid': query_data['houseNum']}
     rdata['humidity'] = int(query_data['num'])
     set_hconfig(rdata)
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 
 def set_light(request):
+    r"""
+    POST request
+    设置灯光配置，请求数据
+    必须字段：
+    houseNum -- 节点 id
+    lightId -- 灯光配置 id
+    非必须字段：
+    name -- 灯光名
+    local -- 灯光安置地点
+    light -- 灯光亮度
+    color -- 灯光颜色
+    state -- 灯光状态 1 - 开，0 - 关
+    """
     query_data = json.loads(request.body)
-    rdata = dict()
-    rdata['light'] = int(query_data['num'])
-    set_hconfig(rdata)
+    rdata = {'pid': query_data['houseNum']}
+    rdata['lightId'] = int(query_data['lightId'])
+    conf = lightConf.data[rdata['lightId']]
+    for k in conf:
+        if k in query_data:
+            conf[k] = query_data[k]
+    lightConf.updata(rdata['lightId'], conf)
+    rdata['config'] = conf
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 
