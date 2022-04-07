@@ -4,7 +4,7 @@ import os
 import json
 
 class CONFIG(object):
-    def __init__(self, oriFile: str, setFile: str, initData: dict = dict()):
+    def __init__(self, oriFile: str = None, setFile: str = None, initData: dict = None):
         r"""
         Arguments:
         oriFile -- 原配置文件路径（字符串 str），配置文件最终保存到这个文件中
@@ -17,29 +17,26 @@ class CONFIG(object):
         self.load()
 
     def check_ori(self) -> bool:
+        if not self.oriFile: return False
         return os.path.isfile(self.oriFile)
 
     def check_set(self) -> bool:
+        if not self.setFile: return False
         return os.path.isfile(self.setFile)
 
     def reset(self) -> int:
         r"""
         此方法判断是否有【重置文件】，如果有则更新【源文件】和【配置数据】
-
-        Return value / exceptions raised:
-        - 返回一个整数 int 如果有更新数据，返回 1，如果没有返回 600  此数字作为模块运行延迟时间
         """
-        haveReset = False
-        if self.check_set():
-            os.rename(self.setFile, self.oriFile)
-            haveReset = True
+        if not self.setFile: return
+        if self.check_set(): os.rename(self.setFile, self.oriFile)
         self.load()
-        return 1 if haveReset else 600
 
     def load(self):
         r"""
         此方法用于加载配置文件中的配置数据，并更新到内存（类成员变量）中
         """
+        if not self.oriFile: return
         if not self.check_ori():
             self.save()
         with open(self.oriFile, encoding='utf8') as f:
@@ -52,6 +49,7 @@ class CONFIG(object):
         r"""
         此方法用于把内存中的配置文件保存到文件中离线
         """
+        if not self.oriFile: return
         with open(self.oriFile, 'w', encoding='utf8') as f:
             f.write(json.dumps(self.data))
 

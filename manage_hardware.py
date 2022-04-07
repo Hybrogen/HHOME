@@ -40,7 +40,7 @@ log = HLog.LOG()
 
 ################################  定义各个功能模块  ################################
 
-def module_1_autoWater() -> int:
+def module_1_environment() -> int:
     start_run_time = time.time()
     data = s_dht.check()
     if data.get('state') == 'error': return
@@ -54,7 +54,7 @@ def module_1_autoWater() -> int:
     hconf.updata('water_state', waterOn)
     return (10 if waterOn else 600) - int(time.time() - start_run_time)
 
-def module_2_autoCurtain() -> int:
+def module_2_curtain() -> int:
     start_run_time = time.time()
     have_light = s_light.check()
     data = dict()
@@ -77,12 +77,21 @@ def module_2_autoCurtain() -> int:
     return 600 - int(time.time() - start_run_time)
 
 def main():
+    r"""
+    主控程序
+    执行逻辑：
+    1. 无限循环
+    2. 先重置配置文件
+    3. 遍历所有模组
+    4. 判断模组是否到达执行周期
+    5. 执行模组函数
+    """
     modules_run_info = {
-        '1_autoWater': {
+        '1_environment': {
             'last_run_time': time.time(),
             'run_interval': 6,
         },
-        '2_autoCurtain': {
+        '2_curtain': {
             'last_run_time': time.time(),
             'run_interval': 6,
         },
