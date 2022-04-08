@@ -22,6 +22,7 @@ urlpatterns = [
     # path('admin/', admin.site.urls),
     path('', views.index),
     path('lightConfig', views.get_light_config),
+    path('getLightConfig', views.get_light_config),
     path('setLight', views.set_light),
     path('getPorts', views.get_ports),
     path('getMasters', views.get_masters),

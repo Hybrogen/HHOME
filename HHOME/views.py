@@ -73,13 +73,14 @@ def set_light(request):
     """
     query_data = json.loads(request.body)
     rdata = {'pid': query_data['houseNum']}
-    rdata['lightId'] = int(query_data['lightId'])
-    conf = lightConf.data[rdata['lightId']]
-    for k in conf:
-        if k in query_data:
-            conf[k] = query_data[k]
-    lightConf.updata(rdata['lightId'], conf)
-    rdata['config'] = conf
+    for newConf in query_data['setLights']:
+        lightId = str(newConf['lightId'])
+        conf = lightConf.get_data([lightId])
+        for k in conf:
+            if k in newConf:
+                conf[k] = newConf[k]
+    lightConf.save()
+    rdata['config'] = lightConf.get_data()
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 

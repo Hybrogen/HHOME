@@ -3,22 +3,8 @@
 import time
 import json
 
-def ttime(gt_mode: str = 'all'):
-    if gt_mode == 'all': return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    temp_strs = {
-        'all': '%Y-%m-%d %H:%M:%S',
-        'year': '%Y',
-        'mounth': '%m',
-        'day': '%d',
-        'hour': '%H',
-        'minute': '%M',
-        'second': '%S',
-    }
-    return int(time.strftime(temp_strs[gt_mode], time.localtime(time.time())))
-
-def hlog(msg, msg_type = 'info'):
-    if msg_type in ['info']: return
-    print(f"{ttime()} - {msg_type}: {msg}")
+from HModules import HLog
+log = HLog.LOG()
 
 import pymysql
 
@@ -41,8 +27,7 @@ class HSQL(object):
 #####################          插入操作          ##########################
 
     def sql_insert(self, sql: str, save_data: list):
-        hlog(f"sql_insert sql = {sql}")
-        hlog(f"sql_insert data = {save_data}")
+        log.linfo(f"sql_insert sql = {sql} | data = {save_data}")
         try:
             cur = self.con.cursor()
             cur.execute(sql, save_data)
@@ -60,9 +45,9 @@ class HSQL(object):
         try:
             this_data_fields = ['pid'] + self.data_fields[data['type']]
             save_data = [data[k] for k in this_data_fields[:-1]]
-            save_data.append(ttime())
+            save_data.append(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
         except KeyError:
-            hlog(f"data_save data = {data}", 'error')
+            log.lerror(f"KeyError - data_save data = {data}")
             return False
 
         sql = f"insert into `{data['type']}_{self.data_table}`({', '.join(['`' + f + '`' for f in this_data_fields])}) values({', '.join(['%s']*len(this_data_fields))})"

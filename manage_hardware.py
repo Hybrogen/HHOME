@@ -28,11 +28,12 @@ from HModules import HActuator, HMySQL, HSensors, HConfig, HLog
 # 数据库
 sql = HMySQL.HSQL('HHOME')
 # 传感器
-s_dht = HSensors.DHT(21, 'DHT22')
+s_dht = HSensors.DHT(25, 'DHT22')
 # Adoor = HActuator.SteeppingMOTOR([6, 13, 19, 26])
 Adoor = HActuator.SteeppingMOTOR([6, 13, 19, 26])
 Aheater = HActuator.HRELAY(16)
 Ahumidifier = HActuator.HRELAY(20)
+Afan = HActuator.HRELAY(21)
 lightIds = [1, 2]
 lightPins = [19, 26]
 Alight = dict(zip(lightIds, [HActuator.HRELAY(pin) for pin in lightPins]))
@@ -51,13 +52,18 @@ def module_1_environment(conf) -> int:
     humidity, temperature = data['humidity'], data['temperature']
 
     log.ldata(f"检测到温湿度数据: data = {data}")
-    waterOn = humidity < conf.get_data(['humidity'])
-    Ahumidifier.run(waterOn)
-    conf.updata('water_state', waterOn)
-    heatOn = temperature > conf.get_data(['temperature'])
-    Aheater.run(heatOn)
-    conf.updata('heat_state', heatOn)
-    return (10 if waterOn or heatOn else 600) - int(time.time() - start_run_time)
+    humiLow = humidity < conf.get_data(['humidity'])[0]
+    humiHigh = humidity > conf.get_data(['humidity'])[1]
+    tempLow = temperature < conf.get_data(['temperature'])[0]
+    tempHigh = temperature > conf.get_data(['temperature'])[1]
+
+    Ahumidifier.run(humiLow)
+    conf.updata('water', [True, humiLow])
+    Aheater.run(tempLow)
+    conf.updata('heat', [True, tempLow])
+    Afan.run(humiHigh or tempHigh)
+    conf.updata('fan', [True, humiHigh or tempHigh])
+    return (10 if sum([conf.get_data([f, 1]) for f in ['water', 'heat', 'fan']]) else 600) - int(time.time() - start_run_time)
 
 # 大材小用这个厉害的接口，以后尽快改掉
 import requests
@@ -113,12 +119,11 @@ def main():
     5. 执行模组函数
     """
     dhtConf = {
-        'temperature': 24,
-        'humidity': 60,
-        'water_auto': True,
-        'water_state': False,
-        'heat_auto': True,
-        'heat_state': False,
+        'temperature': [20, 28],
+        'humidity': [40, 80],
+        'water': [True, False],
+        'heat': [True, False],
+        'fan': [True, False],
     }
     curtainConf = {
         'light': 5,
