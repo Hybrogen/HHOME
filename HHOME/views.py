@@ -18,13 +18,16 @@ if not os.path.isdir(FACES): os.mkdir(FACES)
 CONFS = MDIR + '/conf'
 if not os.path.isdir(CONFS): os.mkdir(CONFS)
 
-LICONF = CONFS + '/light_conf'
-RELICONF = LICONF + '_reset'
-lightConf = HConfig.CONFIG(LICONF, RELICONF)
-
-DHTCONF = CONFS + '/dht_conf'
-REDHTCONF = DHTCONF + '_reset'
-dhtConf = HConfig.CONFIG(DHTCONF, REDHTCONF)
+lightConf = HConfig.CONFIG(CONFS + '/light_conf', CONFS + '/light_conf_reset')
+dhtConf = {
+    'temperature': 24,
+    'humidity': 60,
+    'water_auto': True,
+    'water_state': False,
+    'heat_auto': True,
+    'heat_state': False,
+}
+dhtConf = HConfig.CONFIG(CONFS + '/dht_conf', CONFS + '/dht_conf_reset', dhtConf)
 
 def index(request):
     return HttpResponse('这不是你该来的地方')
@@ -143,9 +146,9 @@ def get_light_config(request):
         for light in lights:
             lid = light['id']
             del light['id']
-            lightConf.data[lid] = light
-        lightConf.save()
-    rdata['lights'] = lightConf.data
+            lightConf.updata(lid, light)
+        # lightConf.save()
+    rdata['lights'] = lightConf.get_data()
     rdata['state'] = 'ok'
     return JsonResponse(rdata)
 

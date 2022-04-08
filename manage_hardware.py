@@ -17,7 +17,8 @@ def check_file(f_type: str, f_name: str, content: str = "{}"):
 HARDMODULEDIR = "HModules"
 check_file('dir', HARDMODULEDIR)
 
-LCONFIGS = HARDMODULEDIR + "/light_config"
+CONFS = HARDMODULEDIR + '/conf'
+if not os.path.isdir(CONFS): os.mkdir(CONFS)
 
 PORTID = 1
 
@@ -29,18 +30,19 @@ sql = HMySQL.HSQL('HHOME')
 # 传感器
 s_dht = HSensors.DHT(21, 'DHT22')
 # Adoor = HActuator.SteeppingMOTOR([6, 13, 19, 26])
-Adoor = HActuator.([6, 13, 19, 26])
+Adoor = HActuator.SteeppingMOTOR([6, 13, 19, 26])
 Aheater = HActuator.HRELAY(16)
 Ahumidifier = HActuator.HRELAY(20)
+lightIds = [1, 2]
 lightPins = [19, 26]
-Alight = [HActuator.HRELAY(pin) for pin in lightPins]
+Alight = dict(zip(lightIds, [HActuator.HRELAY(pin) for pin in lightPins]))
 # 其他模块
-hconf = HConfig.CONFIG(LCONFIGS, LCONFIGS + '_rest')
 log = HLog.LOG()
+lightConf = HConfig.CONFIG(CONFS + '/light_conf', CONFS + '/light_conf')
 
 ################################  定义各个功能模块  ################################
 
-def module_1_environment() -> int:
+def module_1_environment(conf) -> int:
     start_run_time = time.time()
     data = s_dht.check()
     if data.get('state') == 'error': return
@@ -49,31 +51,55 @@ def module_1_environment() -> int:
     humidity, temperature = data['humidity'], data['temperature']
 
     log.ldata(f"检测到温湿度数据: data = {data}")
-    waterOn = humidity < hcond.get_data(['humidity']) or temperature > hcond.get_data(['temperature'])
-    a_water.run(waterOn)
-    hconf.updata('water_state', waterOn)
-    return (10 if waterOn else 600) - int(time.time() - start_run_time)
+    waterOn = humidity < conf.get_data(['humidity'])
+    Ahumidifier.run(waterOn)
+    conf.updata('water_state', waterOn)
+    heatOn = temperature > conf.get_data(['temperature'])
+    Aheater.run(heatOn)
+    conf.updata('heat_state', heatOn)
+    return (10 if waterOn or heatOn else 600) - int(time.time() - start_run_time)
 
-def module_2_curtain() -> int:
+# 大材小用这个厉害的接口，以后尽快改掉
+import requests
+def get_uv(city: str = 'Pingdingshan'):
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid=93835eae1c46dc657e84b40bf584dc0c"
+    for i in range(3):
+        try:
+            rdata = json.loads(requests.request('GET', url = url).text)
+        except requests.exceptions.ConnectionError:
+            log.lerror(f"get_uv 请求失败，正在重试 {i + 1}")
+            time.sleep(3)
+    if rdata['cod'] != 200: return 0
+    rdata = rdata['coord']
+    url = f"https://openweathermap.org/data/2.5/onecall?lat={rdata['lat']}&lon={rdata['lon']}&units=metric&appid=439d4b804bc8187953eb36d2a8c26a02"
+    for i in range(3):
+        try:
+            rdata = json.loads(requests.request('GET', url = url).text)
+        except requests.exceptions.ConnectionError:
+            log.lerror(f"get_uv 请求失败，正在重试 {i + 1}")
+            time.sleep(3)
+    rdata = rdata['current']['uvi']
+    return rdata
+
+def light_on(state: bool):
+    for lid, l in Alight.items():
+        if lid not in lightConf.get_data(): continue
+        l.run(state)
+
+def module_2_curtain(conf) -> int:
     start_run_time = time.time()
-    have_light = s_light.check()
-    data = dict()
-    data['pid'] = PORTID
-    data['light'] = 22.2
+    data = {'pid': PORTID}
+    log.linfo("请求光照数据...")
+    data['light'] = get_uv('Hangzhou')
+    log.ldata(f"请求到光照数据 uv = {data['light']} | cost {int(time.time() - start_run_time)}s")
     sql.light_save(data)
 
-    # 自动模式 - 
-    if hcond.get_data(['curtain_auto']):
-        if have_light == hconf.get_data(['curtain_state']):
-            a_curtain.run(not have_light)
-            hconf.updata('curtain_state', not have_light)
-    # 手动模式 - 如果检测状态与手动设定状态不同，活动窗帘
-    # 并将窗帘重置为自动模式
-    else:
-        a_curtain.run(hconf.get_data(['curtain_state']))
-        hconf.updata('curtain_auto', True)
+    lightOn = data['light'] < conf.get_data(['light'])
+    light_on(lightOn)
 
-    log.ldata(f"检测到光照度数据: have_light = {have_light}")
+    conf.updata('curtain_auto', True)
+    conf.updata('curtain_state', lightOn)
+
     return 600 - int(time.time() - start_run_time)
 
 def main():
@@ -86,33 +112,51 @@ def main():
     4. 判断模组是否到达执行周期
     5. 执行模组函数
     """
-    modules_run_info = {
-        '1_environment': {
+    dhtConf = {
+        'temperature': 24,
+        'humidity': 60,
+        'water_auto': True,
+        'water_state': False,
+        'heat_auto': True,
+        'heat_state': False,
+    }
+    curtainConf = {
+        'light': 5,
+        'curtain_auto': True,
+        'curtain_state': False,
+    }
+    # MRI - modules_run_info
+    MRI = {
+        'module_1_environment': {
             'last_run_time': time.time(),
             'run_interval': 6,
+            'config': HConfig.CONFIG(CONFS + '/dht_conf', CONFS + '/dht_conf_reset', dhtConf),
         },
-        '2_curtain': {
+        'module_2_curtain': {
             'last_run_time': time.time(),
             'run_interval': 6,
+            'config': HConfig.CONFIG(CONFS + '/curtain_conf', CONFS + '/curtain_conf_reset', curtainConf),
         },
     }
     while True:
-        if hconf.setFile:
-            log.linfo(f"main 存在文件 {RECONFIG}")
-            for module in modules_run_info.keys():
-                modules_run_info[module]['run_interval'] = 1
-        for module in modules_run_info.keys():
+        for module in MRI.keys():
+            if MRI[module]['config'].reset(): MRI[module]['run_interval'] = 1
             time.sleep(1)
-            try:
-                if int(time.time() - modules_run_info[module]['last_run_time']) > modules_run_info[module]['run_interval']:
-                    modules_run_info[module]['run_interval'] = eval(f"module_{module}")()
-                    modules_run_info[module]['last_run_time'] = time.time()
-            except TypeError:
-                log.lerror(f"main module = {module}")
-                modules_run_info[module]['run_interval'] = 1
+            if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
+                MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
+                MRI[module]['last_run_time'] = time.time()
+            # try:
+            #     if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
+            #         MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
+            #         MRI[module]['last_run_time'] = time.time()
+            # except TypeError:
+            #     log.lerror(f"main module = {module}")
+            #     MRI[module]['run_interval'] = 1
 
 if __name__ == '__main__':
     try:
         main()
+        # print(f"get_uv = {get_uv('Hangzhou')}")
     except KeyboardInterrupt:
         log.log('个性化智能房屋硬件系统停止工作', 'exit')
+

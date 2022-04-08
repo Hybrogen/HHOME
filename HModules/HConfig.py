@@ -13,7 +13,7 @@ class CONFIG(object):
         """
         self.oriFile = oriFile
         self.setFile = setFile
-        self.data = initData
+        self.data = initData if initData else dict()
         self.load()
 
     def check_ori(self) -> bool:
@@ -24,13 +24,17 @@ class CONFIG(object):
         if not self.setFile: return False
         return os.path.isfile(self.setFile)
 
-    def reset(self) -> int:
+    def reset(self) -> bool:
         r"""
         此方法判断是否有【重置文件】，如果有则更新【源文件】和【配置数据】
         """
-        if not self.setFile: return
-        if self.check_set(): os.rename(self.setFile, self.oriFile)
+        if not self.setFile: return False
+        resetFlag = False
+        if self.check_set():
+            os.rename(self.setFile, self.oriFile)
+            resetFlag = True
         self.load()
+        return resetFlag
 
     def load(self):
         r"""
