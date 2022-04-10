@@ -153,6 +153,15 @@ class HSQL(object):
                 ) as cdid
             )
             """
+            sql = f"""
+            SELECT {fields} FROM `{query_data['data_type']}_{self.data_table}` WHERE `id` in (
+                SELECT `cid` FROM (
+                        SELECT MAX(`id`) as `cid`, DATE_FORMAT(`check_datetime`, '%Y-%m-%d %H') as `cdate`
+                        FROM `{query_data['data_type']}_{self.data_table}` WHERE `pid` = {pid}
+                        GROUP BY `cdate`
+                ) as cdid
+            )
+            """
 
         # 获取并返回数据
         rdata = self.sql_select(self.data_fields[query_data['data_type']], sql)
