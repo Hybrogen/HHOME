@@ -147,16 +147,16 @@ def main():
         for module in MRI.keys():
             if MRI[module]['config'].reset(): MRI[module]['run_interval'] = 1
             time.sleep(1)
-            if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
-                MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
-                MRI[module]['last_run_time'] = time.time()
-            # try:
-            #     if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
-            #         MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
-            #         MRI[module]['last_run_time'] = time.time()
-            # except TypeError:
-            #     log.lerror(f"main module = {module}")
-            #     MRI[module]['run_interval'] = 1
+            # if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
+            #     MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
+            #     MRI[module]['last_run_time'] = time.time()
+            try:
+                if int(time.time() - MRI[module]['last_run_time']) > MRI[module]['run_interval']:
+                    MRI[module]['run_interval'] = eval(module)(MRI[module]['config'])
+                    MRI[module]['last_run_time'] = time.time()
+            except TypeError:
+                log.lerror(f"main module = {module}")
+                MRI[module]['run_interval'] = 1
 
 if __name__ == '__main__':
     try:
