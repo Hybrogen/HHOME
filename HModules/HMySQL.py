@@ -160,7 +160,7 @@ class HSQL(object):
                         FROM `{query_data['data_type']}_{self.data_table}` WHERE `pid` = {pid}
                         GROUP BY `cdate`
                 ) as cdid
-            )
+            ) LIMIT 24
             """
 
         # 获取并返回数据
